@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Block Schedule (Tu/Th)</title>
+<style>
+  body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #2b2b2b;
+    color: #e0e0e0;
+    animation: antiIdle 2m infinite;
+  }
+  @keyframes antiIdle {
+    0%, 100% { opacity: 1 }
+    50% { opacity: 0.999 }
+  }
+  .schedule-title {
+    text-align: center;
+    font-size: 1.8em;
+    font-weight: bold;
+    margin: 20px 0 10px;
+    color: #e0e0e0;
+  }
+  .schedule {
+    max-width: 600px;
+    margin: 0 auto 40px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .block {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    transition: background-color 0.3s ease;
+  }
+  .num-col {
+    width: 60px;
+    text-align: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    /* Removed border-right */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+  .label-col {
+    flex: 1;
+    padding: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+</head>
+<body>
+  <h1 class="schedule-title">Block Schedule (Tu/Th)</h1>
+  <div class="schedule" id="schedule"></div>
+
+<script>
+  const blocks = [
+    { num: "1", label: "1st Period", start: "8:10 AM", end: "9:50 AM", silk: "#FF0100", numText: "#FFF" },
+    { num: "-", label: "Break", start: "9:50 AM", end: "10:00 AM", silk: "#555", numText: "#FFF" },
+    { num: "3", label: "3rd Period", start: "10:05 AM", end: "11:45 AM", silk: "#0000FF", numText: "#FFF" },
+    { num: "H", label: "Homeroom", start: "11:50 AM", end: "12:20 PM", silk: "#331E54", numText: "#FFF" },
+    { num: "L", label: "Lunch", start: "12:20 PM", end: "12:55 PM", silk: "#1C93D0", numText: "#FFF" },
+    { num: "5", label: "5th Period", start: "1:00 PM", end: "2:40 PM", silk: "#008001", numText: "#FFF" }
+  ];
+
+  function getCurrentTimeInSeconds() {
+    const now = new Date();
+    return now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  }
+
+  function timeToSeconds(timeStr) {
+    const [time, meridianRaw] = timeStr.split(" ");
+    const meridian = meridianRaw.toUpperCase();
+    let [hours, minutes] = time.split(":").map(Number);
+    if (meridian === "PM" && hours !== 12) hours += 12;
+    if (meridian === "AM" && hours === 12) hours = 0;
+    return hours * 3600 + minutes * 60;
+  }
+
+  function formatTimeLabel(timeStr) {
+    const [time, meridianRaw] = timeStr.split(" ");
+    return time + meridianRaw.toLowerCase();
+  }
+
+  function formatCountdown(secondsLeft) {
+    if (secondsLeft < 60 && secondsLeft >= 0) {
+      return "X";
+    }
+    const m = Math.floor(secondsLeft / 60);
+    return `${m}m`;
+  }
+
+  function renderSchedule() {
+    const container = document.getElementById("schedule");
+    container.innerHTML = "";
+    const now = getCurrentTimeInSeconds();
+
+    blocks.forEach(block => {
+      const start = timeToSeconds(block.start);
+      const end = timeToSeconds(block.end);
+      const isActive = now >= start && now < end;
+      const secondsLeft = end - now;
+      const totalSeconds = end - start;
+
+      const countdown = formatCountdown(secondsLeft);
+
+      let progressLine = "| ";
+      if (block.num === "L") {
+        const firstSeg = 300; // 5 minutes
+        const remaining = totalSeconds - firstSeg;
+        const totalSegments = 1 + Math.max(0, Math.floor(remaining / 600));
+        const elapsed = now - start;
+        const horseSegment = elapsed < firstSeg ? 0 : 1 + Math.min(totalSegments - 2, Math.floor((elapsed - firstSeg) / 600));
+
+        for (let i = 0; i < totalSegments; i++) {
+          const marker = i === 0 ? "•" : "-";
+          progressLine += (i === horseSegment && isActive) ? "🏇" : marker;
+          progressLine += " ";
+        }
+      } else {
+        const segmentSize = 600; // 10 minutes
+        const totalSegments = Math.max(1, Math.floor(totalSeconds / segmentSize));
+        const horseSegment = Math.min(totalSegments - 1, Math.floor(secondsLeft / segmentSize));
+        for (let i = 0; i < totalSegments; i++) {
+          progressLine += i === horseSegment && isActive ? "🏇" : "-";
+          progressLine += " ";
+        }
+      }
+      progressLine += "|";
+
+      const row = document.createElement("div");
+      row.className = "block";
+      if (isActive) {
+        row.style.backgroundColor = block.silk;
+        row.style.color = block.numText;
+      }
+
+      const numCol = document.createElement("div");
+      numCol.className = "num-col";
+      numCol.textContent = block.num;
+      numCol.style.backgroundColor = block.silk;
+      numCol.style.color = block.numText;
+
+      const labelCol = document.createElement("div");
+      labelCol.className = "label-col";
+      labelCol.innerHTML = `
+        <span>${formatTimeLabel(block.start)} - ${formatTimeLabel(block.end)} • ${block.label}</span>
+        <span>${isActive ? `${countdown} ${progressLine}` : ""}</span>
+      `;
+
+      row.appendChild(numCol);
+      row.appendChild(labelCol);
+      container.appendChild(row);
+    });
+  }
+
+  setInterval(() => {
+    document.body.dataset.ping = Date.now();
+  }, 120000);
+
+  renderSchedule();
+  setInterval(renderSchedule, 1000);
+</script>
+</body>
+</html>
